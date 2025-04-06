@@ -1,0 +1,84 @@
+# Load the model
+model_path = os.path.join(os.path.dirname(__file__), 'model', 'expiry_predictor.pkl')
+
+# If model doesn't exist yet, we'll create a dummy version
+if not os.path.exists(model_path):
+    # Create the model directory if it doesn't exist
+    os.makedirs(os.path.dirname(model_path), exist_ok=True)
+    
+    # Simple dummy model that predicts expiry dates based on food category
+    class DummyExpiryPredictor:
+        def __init__(self):
+            # Map food categories to average shelf life in days
+            self.shelf_life = {
+                'dairy': 7,
+                'meat': 3,
+                'vegetables': 5,
+                'fruits': 7,
+                'bakery': 4,
+                'canned': 365,
+                'frozen': 180,
+                'leftovers': 3,
+                'other': 7
+            }
+        
+        def predict(self, categories):
+            """Predict expiry days based on food category"""
+            predictions = []
+            for category in categories:
+                # Get the shelf life for this category, or default to 7 days
+                days = self.shelf_life.get(category.lower(), 7)
+                predictions.append(days)
+            return np.array(predictions)
+    
+    # Save the dummy model
+    dummy_model = DummyExpiryPredictor()
+    with open(model_path, 'wb') as f:
+        pickle.dump(dummy_model, f)
+
+# Load the model
+with open(model_path, 'rb') as f:
+    model = pickle.load(f)
+
+@app.route('/predict', methods=['POST'])
+def predict_expiry():
+    data = request.get_json()
+    
+    if not data or 'items' not in data:
+        return jsonify({'error': 'No items provided'}), 400
+    
+    items = data['items']
+    categories = [item.get('category', 'other') for item in items]
+    
+    # Make predictions (days until expiry)
+    try:
+        predictions = model.predict(categories)
+        
+        # Convert predictions to dates
+        results = []
+        for i, days in enumerate(predictions):
+            purchase_date = datetime.strptime(items[i].get('purchaseDate', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d')
+            expiry_date = purchase_date + timedelta(days=int(days))
+            
+            results.append({
+                'itemId': items[i].get('id'),
+                'name': items[i].get('name'),
+                'category': items[i].get('category'),
+                'predictedExpiryDate': expiry_date.strftime('%Y-%m-%d'),
+                'daysUntilExpiry': int(days)
+            })
+        
+        return jsonify({
+            'predictions': results
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'ok', 'message': 'ML API is running'})
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5001)
+
