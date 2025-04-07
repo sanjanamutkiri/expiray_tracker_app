@@ -13,6 +13,7 @@ import VoiceScan from "./pages/VoiceScan";
 import BarcodeScan from "./pages/BarcodeScan";
 import GroceryList from "./pages/GroceryList";
 import MealSuggestion from "./pages/MealSuggestion";
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -33,6 +34,10 @@ function App() {
         <Route path="/barcode-scan" element={<BarcodeScan />} />
         <Route path="/grocery-list" element={<GroceryList />} />
         <Route path="/meal-suggestion" element={<MealSuggestion />} />
+        <Route path="/profile" element={<Profile />} />
+        
+        
+        
         </Routes>
       </Router>
     </AuthProvider>
