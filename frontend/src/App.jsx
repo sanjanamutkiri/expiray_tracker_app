@@ -5,6 +5,9 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import { AuthProvider } from './context/AuthContext';
+import HomeDashboard from './pages/HomeDashboard';
+import RestaurantDashboard from './pages/RestaurantDashboard';
+
 
 function App() {
   return (
@@ -15,7 +18,8 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/home" element={<HomeDashboard />} />
+          <Route path="/dashboard/restaurant" element={<RestaurantDashboard />} />        
           <Route path="/home" element={<Login />} />
           <Route path="/restaurant" element={<Login />} />
         </Routes>

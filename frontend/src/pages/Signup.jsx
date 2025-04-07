@@ -36,7 +36,7 @@ const Signup = () => {
         name: userData.name,
         email: userData.email,
         password: userData.password,
-        role: userData.role
+        role: userData.role // sending role to backend
       });
 
       if (response.data.message) {

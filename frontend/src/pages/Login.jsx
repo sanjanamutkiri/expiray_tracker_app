@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext'; // <-- ✅ import auth context
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const [credentials, setCredentials] = useState({
@@ -11,7 +11,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const { login } = useAuth(); // <-- ✅ use login function from context
+  const { login } = useAuth(); // using auth context to update state
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -27,23 +27,28 @@ const Login = () => {
     try {
       const response = await axios.post('http://localhost:3002/api/users/login', credentials);
       
-      // Save to localStorage
+      // Save token and user details in localStorage
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify({
         id: response.data._id,
         name: response.data.name,
         email: response.data.email,
-        userType: response.data.userType
+        userType: response.data.userType // role from backend
       }));
 
-      // ✅ Update AuthContext state
-      login(); // <-- this sets isLoggedIn to true so Navbar updates
+      // Update AuthContext state
+      login();
 
       if (response.data.message) {
         alert(response.data.message);
       }
-
-      navigate('/dashboard');
+      
+      // Redirect based on user role
+      if (response.data.userType === 'restaurant') {
+        navigate('/dashboard/restaurant');
+      } else {
+        navigate('/dashboard/home');
+      }
     } catch (error) {
       setError(error.response?.data?.message || 'Login failed. Please try again.');
     } finally {

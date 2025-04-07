@@ -1,7 +1,3 @@
-
-
-
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -35,7 +31,7 @@ app.get('/', (req, res) => {
 });
 
 // Start server
-const PORT =3002;
+const PORT = 3002;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

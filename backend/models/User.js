@@ -15,6 +15,7 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // Store role as userType
   userType: {
     type: String,
     enum: ['home', 'restaurant'],
@@ -35,7 +36,7 @@ UserSchema.pre('save', async function(next) {
   next();
 });
 
-// Compare entered password with hashed
+// Compare entered password with hashed password
 UserSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
