@@ -1,54 +1,53 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from "react-router-dom";
+
 const HomeDashboard = () => {
-
   const navigate = useNavigate();
-
-
-
+  
+  // State for items and UI
   const [items, setItems] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-
-  // New item form data
+  
+  // State for item form
   const [newItem, setNewItem] = useState({
     name: '',
-    category: '',
+    category: 'Uncategorized',
+    purchaseDate: '',
+    expiryDate: '',
+    quantity: 1,
+    unit: 'item',
+    notes: '',
+    storageCondition: 'fridge',
+    itemCondition: 'fresh'
+  });
+  
+  // State for prediction
+  const [storageCondition, setStorageCondition] = useState('fridge');  const [itemCondition, setItemCondition] = useState('fresh');
+  const [isLoadingPrediction, setIsLoadingPrediction] = useState(false);
+  const [predictionMsg, setPredictionMsg] = useState('');
+
+  // State for edit form
+  const [editItem, setEditItem] = useState({
+    _id: '',
+    name: '',
+    category: 'Uncategorized',
     purchaseDate: '',
     expiryDate: '',
     quantity: 1,
     unit: 'item',
     notes: ''
   });
-
-  // Budget data
-  const [budget, setBudget] = useState({
-    total: 1500.00,
-    spent: 97.00,
-    remaining: 1403.00,
-    categories: [
-      { name: 'Dairy & Eggs', amount: 52.00 },
-      { name: 'Bakery', amount: 45.00 }
-    ],
-    expenses: [
-      { item: 'Milk', category: 'Dairy & Eggs', amount: 28.00 },
-      { item: 'Bread', category: 'Bakery', amount: 35.00 },
-      { item: 'Eggs', category: 'Dairy & Eggs', amount: 24.00 },
-      { item: 'Apples', category: 'Fruits & Vegetables', amount: 10.00 }
-    ]
-  });
-
-  // Grocery list
-  const [groceryList, setGroceryList] = useState([
-    { name: 'Milk', quantity: 2, category: 'Dairy & Eggs', bought: 4 },
-    { name: 'Bread', quantity: 1, category: 'Bakery', bought: 3 },
-    { name: 'Eggs', quantity: 12, category: 'Dairy & Eggs', bought: 2 }
-  ]);
+  const [editStorageCondition, setEditStorageCondition] = useState('fridge');
+  const [editItemCondition, setEditItemCondition] = useState('fresh');
+  const [isLoadingEditPrediction, setIsLoadingEditPrediction] = useState(false);
+  const [editPredictionMsg, setEditPredictionMsg] = useState('');
 
   // Tips
-  const [tips, setTips] = useState([
+  const [tips] = useState([
     'Store fruits and vegetables properly to extend freshness',
     'Freeze items that are about to expire',
     'Plan your meals around what needs to be used first',
@@ -74,36 +73,163 @@ const HomeDashboard = () => {
     }
   };
 
-  // Add a new item
-  const handleAddItem = async (e) => {
-    e.preventDefault();
+  // Get ML prediction for new item
+  const getPrediction = async () => {
+    if (!newItem.name) {
+      alert('Please enter a product name first');
+      return;
+    }
+    
+    setIsLoadingPrediction(true);
+    setPredictionMsg('Getting shelf-life prediction...');
+    
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:3002/api/items', newItem, {
+      const res = await axios.post('http://localhost:3002/api/items/predict-expiry', {
+        product_name: newItem.name,
+        storage_condition: storageCondition,
+        item_condition_on_purchase: itemCondition
+      }, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
-      // Refresh items after adding
-      fetchItems();
-      // Close modal
+      
+      // Set the predicted expiry date
+      setNewItem({
+        ...newItem,
+        expiryDate: res.data.predicted_expiry_date
+      });
+      
+      setPredictionMsg(`Predicted shelf life: ${res.data.predicted_days} days`);
+    } catch (error) {
+      console.error('Prediction error:', error);
+      setPredictionMsg('Could not get prediction. Using default expiry date.');
+    } finally {
+      setIsLoadingPrediction(false);
+    }
+  };
+
+  // Get prediction for edit item
+  const getEditPrediction = async () => {
+    if (!editItem.name) {
+      alert('Please enter a product name first');
+      return;
+    }
+    
+    setIsLoadingEditPrediction(true);
+    setEditPredictionMsg('Getting shelf-life prediction...');
+    
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.post('http://localhost:3002/api/items/predict-expiry', {
+        product_name: editItem.name,
+        storage_condition: editStorageCondition,
+        item_condition_on_purchase: editItemCondition
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      // Set the predicted expiry date
+      setEditItem({
+        ...editItem,
+        expiryDate: res.data.predicted_expiry_date
+      });
+      
+      setEditPredictionMsg(`Predicted shelf life: ${res.data.predicted_days} days`);
+    } catch (error) {
+      console.error('Prediction error:', error);
+      setEditPredictionMsg('Could not get prediction. Using default expiry date.');
+    } finally {
+      setIsLoadingEditPrediction(false);
+    }
+  };
+
+  // Add a new item
+  const handleAddItem = async (e) => {
+    e.preventDefault();
+    try {
+      // Include storage and item condition in the submitted data
+      const itemToSubmit = {
+        ...newItem,
+        category: newItem.category || 'Uncategorized',
+        storageCondition: storageCondition,
+        itemCondition: itemCondition
+      };
+      
+      const token = localStorage.getItem('token');
+      await axios.post('http://localhost:3002/api/items', itemToSubmit, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      // Refresh items list and reset form
+       fetchItems();
       setShowAddModal(false);
-      // Reset form
+      
+      // Reset the form for next use
       setNewItem({
         name: '',
-        category: '',
+        category: 'Uncategorized',
         purchaseDate: '',
         expiryDate: '',
         quantity: 1,
         unit: 'item',
         notes: ''
       });
+      setStorageCondition('fridge');
+      setItemCondition('fresh');
+      setPredictionMsg('');
     } catch (error) {
       console.error('Error adding item:', error.response?.data?.message || error.message);
     }
   };
 
-  // Delete item
+  // Edit item details
+  const handleEditItem = (item) => {
+    setEditItem({
+      _id: item._id,
+      name: item.name,
+      category: item.category || 'Uncategorized',
+      purchaseDate: item.purchaseDate || '',
+      expiryDate: item.expiryDate,
+      quantity: item.quantity,
+      unit: item.unit,
+      notes: item.notes || ''
+    });
+    setEditStorageCondition(item.storageCondition || 'fridge');
+    setEditItemCondition(item.itemCondition || 'fresh');
+    setEditPredictionMsg('');
+    setShowEditModal(true);
+  };
+
+  // Update an existing item
+  const handleUpdateItem = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      // Include the storage and item condition fields in the update
+      await axios.put(`http://localhost:3002/api/items/${editItem._id}`, {
+        ...editItem,
+        storageCondition: editStorageCondition,
+        itemCondition: editItemCondition
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      // Refresh items and close modal
+      await fetchItems();
+      setShowEditModal(false);
+    } catch (error) {
+      console.error('Error updating item:', error.response?.data?.message || error.message);
+    }
+  };
+
+  // Delete an item
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to remove this item?')) return;
     try {
@@ -113,7 +239,7 @@ const HomeDashboard = () => {
           Authorization: `Bearer ${token}`
         }
       });
-      fetchItems();
+      await fetchItems();
     } catch (error) {
       console.error('Error deleting item:', error.response?.data?.message || error.message);
     }
@@ -154,27 +280,8 @@ const HomeDashboard = () => {
     }
   };
 
-  // Meal suggestions based on inventory
-  const mealSuggestions = [
-    {
-      name: 'Chicken Apple Salad',
-      time: '20 mins',
-      difficulty: 'Easy',
-      ingredients: ['Chicken Breast', 'Apples', 'Lettuce']
-    },
-    {
-      name: 'French Toast',
-      time: '15 mins',
-      difficulty: 'Easy',
-      ingredients: ['Bread', 'Milk', 'Eggs']
-    }
-  ];
-
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Top Navigation */}
-     
-
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
@@ -288,7 +395,6 @@ const HomeDashboard = () => {
                 )}
               </div>
             </div>
-
           
             {/* All items with tabs (All, Expiring Soon, Expired) */}
             <div className="bg-white rounded-lg shadow mb-6">
@@ -347,7 +453,7 @@ const HomeDashboard = () => {
                         </p>
                         <div className="flex justify-between text-sm">
                           <button 
-                            onClick={() => alert('Edit feature coming soon')}
+                            onClick={() => handleEditItem(item)}
                             className="text-blue-600 hover:text-blue-800 flex items-center"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -355,6 +461,7 @@ const HomeDashboard = () => {
                             </svg>
                             Edit
                           </button>
+
                           <button 
                             onClick={() => handleDelete(item._id)}
                             className="text-red-600 hover:text-red-800 flex items-center"
@@ -371,12 +478,6 @@ const HomeDashboard = () => {
                 </div>
               </div>
             </div>
-
-
-            
-
-
-            
           </div>
 
           {/* Right sidebar */}
@@ -393,7 +494,7 @@ const HomeDashboard = () => {
                   </svg>
                   Inventory Report
                 </button>
-                <button  onClick={() => navigate("/voice-scan")} className="w-full text-left flex items-center p-2 hover:bg-gray-50 rounded">
+                <button onClick={() => navigate("/voice-scan")} className="w-full text-left flex items-center p-2 hover:bg-gray-50 rounded">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                   </svg>
@@ -439,135 +540,246 @@ const HomeDashboard = () => {
                 </ul>
               </div>
             </div>
-
-          
-           
           </div>
         </div>
       </div>
 
+      
+
       {/* Add Item Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Add New Food Item</h3>
-                    <form onSubmit={handleAddItem}>
-                      <div className="mb-4">
-                        <label className="block text-gray-700 text-sm font-medium mb-2">Name</label>
-                        <input
-                          type="text"
-                          className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                          required
-                          value={newItem.name}
-                          onChange={(e) => setNewItem({...newItem, name: e.target.value})}
-                        />
-                      </div>
-                      <div className="mb-4">
-                        <label className="block text-gray-700 text-sm font-medium mb-2">Category</label>
-                        <select
-                          className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                          required
-                          value={newItem.category}
-                          onChange={(e) => setNewItem({...newItem, category: e.target.value})}
-                        >
-                          <option value="">Select a category</option>
-                          <option value="Dairy & Eggs">Dairy & Eggs</option>
-                          <option value="Fruits & Vegetables">Fruits & Vegetables</option>
-                          <option value="Bakery">Bakery</option>
-                          <option value="Meat & Seafood">Meat & Seafood</option>
-                          <option value="Pantry">Pantry</option>
-                        </select>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label className="block text-gray-700 text-sm font-medium mb-2">Purchase Date</label>
-                          <input
-                            type="date"
-                            className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                            value={newItem.purchaseDate}
-                            onChange={(e) => setNewItem({...newItem, purchaseDate: e.target.value})}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-gray-700 text-sm font-medium mb-2">Expiry Date</label>
-                          <input
-                            type="date"
-                            className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                            required
-                            value={newItem.expiryDate}
-                            onChange={(e) => setNewItem({...newItem, expiryDate: e.target.value})}
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label className="block text-gray-700 text-sm font-medium mb-2">Quantity</label>
-                          <input
-                            type="number"
-                            min="1"
-                            className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                            value={newItem.quantity}
-                            onChange={(e) => setNewItem({...newItem, quantity: parseInt(e.target.value) || 1})}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-gray-700 text-sm font-medium mb-2">Unit</label>
-                          <select
-                            className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                            value={newItem.unit}
-                            onChange={(e) => setNewItem({...newItem, unit: e.target.value})}
-                          >
-                            <option value="item">Item</option>
-                            <option value="g">Grams</option>
-                            <option value="kg">Kilograms</option>
-                            <option value="pcs">Pieces</option>
-                            <option value="box">Box</option>
-                            <option value="bottle">Bottle</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="mb-4">
-                        <label className="block text-gray-700 text-sm font-medium mb-2">Notes</label>
-                        <textarea
-                          className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                          rows="3"
-                          value={newItem.notes}
-                          onChange={(e) => setNewItem({...newItem, notes: e.target.value})}
-                        ></textarea>
-                      </div>
-                    </form>
+{showAddModal && (
+  <div className="fixed inset-0 z-10 overflow-y-auto">
+    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+        <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+      </div>
+      <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+          <div className="sm:flex sm:items-start">
+            <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Add New Food Item</h3>
+              <form onSubmit={handleAddItem}>
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Name</label>
+                  <div className="flex">
+                    <input
+                      type="text"
+                      className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-l-md"
+                      required
+                      value={newItem.name}
+                      onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                    />
+                    <button
+                      type="button"
+                      onClick={getPrediction}
+                      className="bg-blue-500 hover:bg-blue-600 text-white font-medium px-3 rounded-r-md"
+                      disabled={isLoadingPrediction}
+                    >
+                      {isLoadingPrediction ? 'Loading...' : 'Predict'}
+                    </button>
                   </div>
+                  {predictionMsg && <p className="text-sm text-blue-600 mt-1">{predictionMsg}</p>}
                 </div>
-              </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  onClick={handleAddItem}
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  Add Item
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  Cancel
-                </button>
-              </div>
+
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Storage Condition</label>
+                  <select
+                    className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    required
+                    value={storageCondition}
+                    onChange={(e) => setStorageCondition(e.target.value)}
+                  >
+                    <option value="">Select Storage Condition</option>
+                    <option value="fridge">Fridge</option>
+                    <option value="room temperature">Room Temperature</option>
+                    <option value="freezer">Freezer</option>
+                  </select>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Category</label>
+                  <select
+                    className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    required
+                    value={newItem.category}
+                    onChange={(e) => setNewItem({...newItem, category: e.target.value})}
+                  >
+                    <option value="">Select a category</option>
+                    <option value="Uncategorized">Uncategorized</option>
+                    <option value="Dairy & Eggs">Dairy & Eggs</option>
+                    <option value="Fruits & Vegetables">Fruits & Vegetables</option>
+                    <option value="Bakery">Bakery</option>
+                    <option value="Meat & Seafood">Meat & Seafood</option>
+                    <option value="Pantry">Pantry</option>
+                  </select>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Item Condition</label>
+                  <select
+                    className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    required
+                    value={itemCondition}
+                    onChange={(e) => setItemCondition(e.target.value)}
+                  >
+                    <option value="">Select Condition</option>
+                    <option value="fresh">Fresh</option>
+                    <option value="slightly bruised">Slightly Bruised</option>
+                    <option value="damaged pack">Damaged Pack</option>
+                    <option value="spoiled">Spoiled</option>
+                    <option value="near expiry">Near Expiry</option>
+                    <option value="sealed & intact">Sealed & Intact</option>
+                    <option value="minor defect">Minor Defect</option>
+                    <option value="overripe">Overripe</option>
+                    <option value="leaky pack">Leaky Pack</option>
+                    <option value="discolored">Discolored</option>
+                  </select>
+                </div>
+              </form>
             </div>
           </div>
         </div>
-      )}
+        <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <button
+            type="button"
+            onClick={handleAddItem}
+            className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
+          >
+            Add Item
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAddModal(false)}
+            className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Edit Item Modal */}
+{showEditModal && (
+  <div className="fixed inset-0 z-10 overflow-y-auto">
+    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+        <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+      </div>
+      <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+          <div className="sm:flex sm:items-start">
+            <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Edit Food Item</h3>
+              <form onSubmit={handleUpdateItem}>
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Name</label>
+                  <div className="flex">
+                    <input
+                      type="text"
+                      className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-l-md"
+                      required
+                      value={editItem.name}
+                      onChange={(e) => setEditItem({...editItem, name: e.target.value})}
+                    />
+                    <button
+                      type="button"
+                      onClick={getEditPrediction}
+                      className="bg-blue-500 hover:bg-blue-600 text-white font-medium px-3 rounded-r-md"
+                      disabled={isLoadingEditPrediction}
+                    >
+                      {isLoadingEditPrediction ? 'Loading...' : 'Predict'}
+                    </button>
+                  </div>
+                  {editPredictionMsg && <p className="text-sm text-blue-600 mt-1">{editPredictionMsg}</p>}
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Storage Condition</label>
+                  <select
+                    className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    required
+                    value={editStorageCondition}
+                    onChange={(e) => setEditStorageCondition(e.target.value)}
+                  >
+                    <option value="">Select Storage Condition</option>
+                    <option value="fridge">Fridge</option>
+                    <option value="room temperature">Room Temperature</option>
+                    <option value="freezer">Freezer</option>
+                  </select>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Category</label>
+                  <select
+                    className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    required
+                    value={editItem.category}
+                    onChange={(e) => setEditItem({...editItem, category: e.target.value})}
+                  >
+                    <option value="">Select a category</option>
+                    <option value="Uncategorized">Uncategorized</option>
+                    <option value="Dairy & Eggs">Dairy & Eggs</option>
+                    <option value="Fruits & Vegetables">Fruits & Vegetables</option>
+                    <option value="Bakery">Bakery</option>
+                    <option value="Meat & Seafood">Meat & Seafood</option>
+                    <option value="Pantry">Pantry</option>
+                  </select>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Item Condition</label>
+                  <select
+                    className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    required
+                    value={editItemCondition}
+                    onChange={(e) => setEditItemCondition(e.target.value)}
+                  >
+                    <option value="">Select Condition</option>
+                    <option value="fresh">Fresh</option>
+                    <option value="slightly bruised">Slightly Bruised</option>
+                    <option value="damaged pack">Damaged Pack</option>
+                    <option value="spoiled">Spoiled</option>
+                    <option value="near expiry">Near Expiry</option>
+                    <option value="sealed & intact">Sealed & Intact</option>
+                    <option value="minor defect">Minor Defect</option>
+                    <option value="overripe">Overripe</option>
+                    <option value="leaky pack">Leaky Pack</option>
+                    <option value="discolored">Discolored</option>
+                  </select>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <button
+            type="button"
+            onClick={handleUpdateItem}
+            className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
+          >
+            Update Item
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowEditModal(false)}
+            className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+
     </div>
   );
 };
+
+
+
 
 export default HomeDashboard;

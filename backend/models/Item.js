@@ -1,18 +1,16 @@
 const mongoose = require('mongoose');
 
-const ItemSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
+const itemSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true
+    required: true,
+    trim: true
   },
   category: {
     type: String,
-    required: true
+    required: false,
+    default: 'Uncategorized',
+    trim: true
   },
   purchaseDate: {
     type: Date,
@@ -29,19 +27,41 @@ const ItemSchema = new mongoose.Schema({
   },
   unit: {
     type: String,
+    enum: ['item', 'g', 'kg', 'pcs', 'box', 'bottle'],
     default: 'item'
   },
-  isConsumed: {
-    type: Boolean,
-    default: false
-  },
-  isWasted: {
-    type: Boolean,
-    default: false
-  },
   notes: {
-    type: String
+    type: String,
+    trim: true
+  },
+  storage_condition: {
+    type: String,
+    enum: ['fridge', 'room temperature', 'freezer'],
+    default: 'fridge'
+  },
+  item_condition_on_purchase: {
+    type: String,
+    enum: [
+      'fresh', 
+      'slightly bruised', 
+      'damaged pack', 
+      'spoiled', 
+      'near expiry', 
+      'sealed & intact', 
+      'minor defect', 
+      'overripe', 
+      'leaky pack', 
+      'discolored'
+    ],
+    default: 'fresh'
+  },
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   }
-});
+}, { timestamps: true });
 
-module.exports = mongoose.model('Item', ItemSchema);
+const Item = mongoose.model('Item', itemSchema);
+
+module.exports = Item;

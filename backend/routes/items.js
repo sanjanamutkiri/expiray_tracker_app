@@ -1,19 +1,27 @@
-// routes/items.js
 const express = require('express');
 const router = express.Router();
-const {
-  getItems,
-  addItem,
-  updateItem,
-  deleteItem,
-  getExpiringItems
-} = require('../controllers/itemController');
-const auth = require('../middleware/auth');
+const itemController = require('../controllers/itemController');
+const authMiddleware = require('../middleware/auth');
 
-router.get('/', auth, getItems);
-router.post('/', auth, addItem);
-router.put('/:id', auth, updateItem);
-router.delete('/:id', auth, deleteItem);
-router.get('/expiring', auth, getExpiringItems);
+// Apply auth middleware to all routes
+router.use(authMiddleware);
+
+// Get all items
+router.get('/', itemController.getItems);
+
+// Add new item
+router.post('/', itemController.addItem);
+
+// Get single item
+router.get('/:id', itemController.getItem);
+
+// Update item
+router.put('/:id', itemController.updateItem);
+
+// Delete item
+router.delete('/:id', itemController.deleteItem);
+
+// Predict expiry date using ML
+router.post('/predict-expiry', itemController.predictExpiry);
 
 module.exports = router;
