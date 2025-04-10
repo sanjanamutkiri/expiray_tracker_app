@@ -41,7 +41,6 @@ exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Validate input
     if (!email || !password) {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
@@ -72,7 +71,12 @@ exports.getUserProfile = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.json(user);
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      userType: user.userType
+    });
   } catch (err) {
     console.error('Get user profile error:', err.message);
     res.status(500).json({ message: 'Server error retrieving user profile' });
@@ -89,7 +93,7 @@ exports.updateUserProfile = async (req, res) => {
 
     user.name = req.body.name || user.name;
     user.email = req.body.email || user.email;
-    
+
     if (req.body.password) {
       user.password = req.body.password;
     }

@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const Profile = () => {
   const [profile, setProfile] = useState(null);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', role: '' });
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
 
@@ -18,7 +18,12 @@ const Profile = () => {
           }
         });
         setProfile(response.data);
-        setFormData({ name: response.data.name, email: response.data.email, password: '' });
+        setFormData({
+          name: response.data.name,
+          email: response.data.email,
+          password: '',
+          role: response.data.role // Role added here
+        });
       } catch (err) {
         console.error('Error fetching profile:', err.response?.data?.message || err.message);
         setMsg('Failed to load profile. Please login again.');
@@ -41,7 +46,12 @@ const Profile = () => {
   const handleUpdate = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.put('/api/users/profile', formData, {
+      const response = await axios.put('/api/users/profile', {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password
+        // Do not send role — it's read-only
+      }, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -90,6 +100,16 @@ const Profile = () => {
             value={formData.password}
             onChange={handleChange}
             className="w-full border px-4 py-2 rounded bg-white dark:bg-gray-800 dark:text-white dark:border-gray-700"
+          />
+        </div>
+        <div>
+          <label className="block mb-1 font-medium text-gray-700 dark:text-gray-200">Role</label>
+          <input
+            type="text"
+            name="role"
+            value={formData.role}
+            readOnly
+            className="w-full border px-4 py-2 rounded bg-gray-100 dark:bg-gray-800 dark:text-white dark:border-gray-700 cursor-not-allowed"
           />
         </div>
         <button
