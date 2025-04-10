@@ -1,10 +1,19 @@
 import React, { useEffect, useState } from "react";
 import axios from 'axios';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 export default function InventoryReport() {
   const [inventoryData, setInventoryData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [dashboardStats, setDashboardStats] = useState({
+    categoryData: [],
+    statusData: [],
+    expiringItems: 0,
+    expiredItems: 0,
+    goodItems: 0,
+    totalItems: 0
+  });
 
   // Calculate how many days left until expiry
   const daysUntilExpiry = (expiryDate) => {
@@ -33,9 +42,41 @@ export default function InventoryReport() {
         month: '2-digit',
         year: 'numeric'
       }),
-      status: getItemStatus(item.expiryDate),
-      price: item.price || 'N/A' // Add price if available
+      status: getItemStatus(item.expiryDate)
     }));
+  };
+
+  // Prepare dashboard data
+  const prepareDashboardData = (items) => {
+    // Category distribution
+    const categories = {};
+    items.forEach(item => {
+      categories[item.category] = (categories[item.category] || 0) + 1;
+    });
+    
+    const categoryData = Object.entries(categories).map(([name, value]) => ({ name, value }));
+    
+    // Status distribution
+    const statusCounts = {
+      "Good": 0,
+      "Expiring Soon": 0,
+      "Expired": 0
+    };
+    
+    items.forEach(item => {
+      statusCounts[item.status]++;
+    });
+    
+    const statusData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+    
+    return {
+      categoryData,
+      statusData,
+      expiringItems: statusCounts["Expiring Soon"],
+      expiredItems: statusCounts["Expired"],
+      goodItems: statusCounts["Good"],
+      totalItems: items.length
+    };
   };
 
   useEffect(() => {
@@ -49,7 +90,9 @@ export default function InventoryReport() {
           }
         });
         
-        setInventoryData(formatInventoryData(res.data));
+        const formattedData = formatInventoryData(res.data);
+        setInventoryData(formattedData);
+        setDashboardStats(prepareDashboardData(formattedData));
         setLoading(false);
       } catch (error) {
         console.error('Error fetching items:', error.response?.data?.message || error.message);
@@ -76,6 +119,14 @@ export default function InventoryReport() {
 
   const printReport = () => {
     window.print();
+  };
+
+  // Colors for charts
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+  const STATUS_COLORS = {
+    'Good': '#10B981',
+    'Expiring Soon': '#F59E0B',
+    'Expired': '#EF4444'
   };
 
   if (loading) {
@@ -128,6 +179,82 @@ export default function InventoryReport() {
           Print Report
         </button>
       </div>
+
+      {/* Dashboard Section */}
+      <div className="bg-white rounded-xl p-6 shadow">
+        <h2 className="text-lg font-semibold mb-4">Inventory Dashboard</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-500">Total Items</p>
+            <p className="text-2xl font-bold">{dashboardStats.totalItems}</p>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-500">Expiring Soon</p>
+            <p className="text-2xl font-bold text-yellow-500">{dashboardStats.expiringItems}</p>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-500">Expired Items</p>
+            <p className="text-2xl font-bold text-red-500">{dashboardStats.expiredItems}</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Category Distribution Chart */}
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+            <h3 className="text-md font-medium mb-2">Category Distribution</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={dashboardStats.categoryData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {dashboardStats.categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => [`${value} items`, 'Count']} />
+                  <Legend layout="vertical" verticalAlign="bottom" align="center" />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          
+          {/* Status Distribution Chart */}
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+            <h3 className="text-md font-medium mb-2">Item Status</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={dashboardStats.statusData}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => [`${value} items`, 'Count']} />
+                  <Legend />
+                  <Bar dataKey="value" name="Items">
+                    {dashboardStats.statusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.name] || COLORS[index % COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Inventory Table */}
       <div className="bg-white rounded-xl p-6 shadow">
         <h2 className="text-lg font-semibold mb-4">Inventory Summary</h2>
         {inventoryData.length === 0 ? (
@@ -141,7 +268,6 @@ export default function InventoryReport() {
                 <th>Quantity</th>
                 <th>Expiry Date</th>
                 <th>Status</th>
-                <th>Price</th>
               </tr>
             </thead>
             <tbody>
@@ -156,7 +282,6 @@ export default function InventoryReport() {
                       {item.status}
                     </span>
                   </td>
-                  <td>{item.price}</td>
                 </tr>
               ))}
             </tbody>
@@ -213,13 +338,6 @@ export default function InventoryReport() {
                   ? `${topCategory[0]} items make up the largest portion of your inventory (${topCategory[1]} items).`
                   : 'No category data available.';
               })()}
-            </p>
-          </div>
-          
-          <div className="bg-green-50 border-l-4 border-green-400 p-4">
-            <p className="text-sm font-medium text-green-800">
-              Cost Saving: <br />
-              Consider bulk purchasing of frequently used items to reduce costs by up to 15%.
             </p>
           </div>
         </div>
