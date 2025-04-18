@@ -23,10 +23,12 @@ import Profile from './pages/Profile';
 import About from './pages/About';
 import Features from './pages/Features';
 import Contact from './pages/Contact';
+import { NotificationProvider } from './components/Navbar';
 
 function App() {
   return (
     <AuthProvider>
+       <NotificationProvider>
       <Router>
         {/* ✅ Toast messages styled for dark mode compatibility */}
         <Toaster
@@ -89,6 +91,7 @@ function App() {
           <Footer />
         </div>
       </Router>
+      </NotificationProvider>
     </AuthProvider>
   );
 }
